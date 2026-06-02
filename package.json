@@ -1,5 +1,5 @@
 {
-  "name": "block-web",
+  "name": "work-support-extension",
   "description": "作業集中ブロッカー - 作業時間中にホワイトリスト外のWebページ閲覧をブロックするChrome拡張",
   "private": true,
   "version": "0.1.0",

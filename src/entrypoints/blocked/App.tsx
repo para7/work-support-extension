@@ -29,12 +29,14 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  const originalUrl = new URLSearchParams(window.location.search).get("url");
+
   useEffect(() => {
     if (!state) return;
     if (state.status === "idle") {
-      window.location.href = "about:newtab";
+      window.location.href = originalUrl ?? "about:newtab";
     }
-  }, [state]);
+  }, [state, originalUrl]);
 
   const handleRequestCancel = async () => {
     const res = await sendMessage({ type: "REQUEST_CANCEL" });
@@ -72,6 +74,11 @@ export default function App() {
           <p className="text-slate-400">
             集中して作業に取り組みましょう
           </p>
+          {originalUrl && (
+            <p className="truncate text-xs text-slate-500" title={originalUrl}>
+              {originalUrl}
+            </p>
+          )}
         </div>
 
         <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-8">
