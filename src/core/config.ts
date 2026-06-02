@@ -9,8 +9,6 @@ export const DEFAULT_WHITELIST: WhitelistEntry[] = [
 ];
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  cancelPolicy: "cooldown",
-  cooldownMinutes: 5,
   whitelist: DEFAULT_WHITELIST,
 };
 
@@ -18,11 +16,9 @@ export const INITIAL_TIMER_STATE: TimerState = {
   status: "idle",
   endTime: null,
   duration: null,
-  cancelPolicy: "cooldown",
-  cancelRequestedAt: null,
 };
 
-export const DURATION_PRESETS = [25, 50, 90] as const;
+export const DURATION_PRESETS = [30, 60, 90] as const;
 
 export const ALARM_NAME = "block-web-timer";
 export const ALARM_CHECK_NAME = "block-web-check";

@@ -1,12 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import type { TimerState, AppSettings, CancelPolicy } from "@/core/types";
+import type { TimerState, AppSettings } from "@/core/types";
 import { getRemainingMs, formatRemainingTime } from "@/core/timer";
 import { DURATION_PRESETS } from "@/core/config";
 import { sendMessage } from "@/utils/messaging";
-import {
-  addToWhitelist,
-  removeFromWhitelist,
-} from "@/core/whitelist";
+import { addToWhitelist, removeFromWhitelist } from "@/core/whitelist";
 
 type View = "main" | "settings";
 
@@ -17,6 +14,7 @@ export default function App() {
   const [view, setView] = useState<View>("main");
   const [newDomain, setNewDomain] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [confirmMinutes, setConfirmMinutes] = useState<number | null>(null);
 
   const fetchState = useCallback(async () => {
     const res = await sendMessage({ type: "GET_STATE" });
@@ -35,28 +33,16 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleStart = async (minutes: number) => {
+  const handleStartRequest = (minutes: number) => {
     if (minutes <= 0) return;
-    const res = await sendMessage({ type: "START_TIMER", duration: minutes });
-    if (res.success && res.state) setState(res.state);
+    setConfirmMinutes(minutes);
   };
 
-  const handleStop = async () => {
-    const res = await sendMessage({ type: "STOP_TIMER" });
+  const handleConfirmStart = async () => {
+    if (confirmMinutes === null || confirmMinutes <= 0) return;
+    const res = await sendMessage({ type: "START_TIMER", duration: confirmMinutes });
     if (res.success && res.state) setState(res.state);
-  };
-
-  const handleRequestCancel = async () => {
-    const res = await sendMessage({ type: "REQUEST_CANCEL" });
-    if (res.success && res.state) setState(res.state);
-  };
-
-  const handleUpdateCancelPolicy = async (policy: CancelPolicy) => {
-    const res = await sendMessage({
-      type: "UPDATE_SETTINGS",
-      settings: { cancelPolicy: policy },
-    });
-    if (res.success && res.settings) setSettings(res.settings);
+    setConfirmMinutes(null);
   };
 
   const handleAddDomain = async () => {
@@ -88,7 +74,7 @@ export default function App() {
     );
   }
 
-  const isRunning = state.status === "running" || state.status === "cancelling";
+  const isRunning = state.status === "running";
 
   if (view === "settings") {
     return (
@@ -98,9 +84,40 @@ export default function App() {
         onNewDomainChange={setNewDomain}
         onAddDomain={handleAddDomain}
         onRemoveDomain={handleRemoveDomain}
-        onUpdateCancelPolicy={handleUpdateCancelPolicy}
         onBack={() => setView("main")}
       />
+    );
+  }
+
+  if (confirmMinutes !== null) {
+    return (
+      <div className="bg-slate-900 p-5 text-slate-100">
+        <div className="mb-4 text-center">
+          <div className="mb-2 text-3xl">⚠️</div>
+          <h1 className="mb-1 text-sm font-semibold">確認</h1>
+          <p className="text-sm text-slate-400">
+            <span className="font-bold text-white">{confirmMinutes}分間</span>
+            、ホワイトリスト外のサイトがブロックされます。
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            途中で解除することはできません。
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setConfirmMinutes(null)}
+            className="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm text-slate-400 transition-colors hover:border-slate-500 hover:text-slate-300"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={handleConfirmStart}
+            className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+          >
+            開始する
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -112,31 +129,40 @@ export default function App() {
       <div className="bg-slate-900 p-5 text-slate-100">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-sm font-semibold">作業集中モード</h1>
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-900/50 px-2 py-0.5 text-xs text-green-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-            実行中
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setView("settings")}
+              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+              title="ホワイトリスト設定"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-900/50 px-2 py-0.5 text-xs text-green-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+              実行中
+            </span>
+          </div>
         </div>
 
-        <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-5 text-center">
+        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5 text-center">
           <p className="mb-1 text-xs text-slate-400">残り時間</p>
           <p className="font-mono text-3xl font-bold tabular-nums tracking-wider">
             {remainingTime}
           </p>
         </div>
-
-        {state.cancelPolicy !== "none" && (
-          <button
-            onClick={
-              state.cancelPolicy === "immediate" ? handleStop : handleRequestCancel
-            }
-            className="w-full rounded-lg border border-slate-600 py-2 text-sm text-slate-400 transition-colors hover:border-red-500/50 hover:text-red-400"
-          >
-            {state.cancelPolicy === "immediate"
-              ? "作業を終了する"
-              : "解除をリクエストする"}
-          </button>
-        )}
       </div>
     );
   }
@@ -173,7 +199,7 @@ export default function App() {
           {DURATION_PRESETS.map((mins) => (
             <button
               key={mins}
-              onClick={() => handleStart(mins)}
+              onClick={() => handleStartRequest(mins)}
               className="rounded-lg bg-slate-800 py-2.5 text-sm font-medium transition-colors hover:bg-indigo-600"
             >
               {mins}分
@@ -192,13 +218,13 @@ export default function App() {
             value={customDuration}
             onChange={(e) => setCustomDuration(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleStart(Number(customDuration));
+              if (e.key === "Enter") handleStartRequest(Number(customDuration));
             }}
             placeholder="分数を入力"
             className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500"
           />
           <button
-            onClick={() => handleStart(Number(customDuration))}
+            onClick={() => handleStartRequest(Number(customDuration))}
             disabled={!customDuration || Number(customDuration) <= 0}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600"
           >
@@ -216,7 +242,6 @@ function SettingsView({
   onNewDomainChange,
   onAddDomain,
   onRemoveDomain,
-  onUpdateCancelPolicy,
   onBack,
 }: {
   settings: AppSettings;
@@ -224,19 +249,8 @@ function SettingsView({
   onNewDomainChange: (v: string) => void;
   onAddDomain: () => void;
   onRemoveDomain: (pattern: string) => void;
-  onUpdateCancelPolicy: (policy: CancelPolicy) => void;
   onBack: () => void;
 }) {
-  const policies: { value: CancelPolicy; label: string; desc: string }[] = [
-    { value: "none", label: "解除不可", desc: "タイマー終了まで解除できません" },
-    {
-      value: "cooldown",
-      label: "クールダウン",
-      desc: "解除リクエスト後、5分待つと解除",
-    },
-    { value: "immediate", label: "即解除", desc: "確認後すぐに解除できます" },
-  ];
-
   return (
     <div className="bg-slate-900 p-5 text-slate-100">
       <div className="mb-4 flex items-center gap-2">
@@ -259,35 +273,6 @@ function SettingsView({
           </svg>
         </button>
         <h1 className="text-sm font-semibold">設定</h1>
-      </div>
-
-      <div className="mb-5">
-        <h2 className="mb-2 text-xs font-medium text-slate-400">解除ポリシー</h2>
-        <div className="space-y-1.5">
-          {policies.map((p) => (
-            <label
-              key={p.value}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                settings.cancelPolicy === p.value
-                  ? "border-indigo-500 bg-indigo-950/30"
-                  : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-              }`}
-            >
-              <input
-                type="radio"
-                name="cancelPolicy"
-                value={p.value}
-                checked={settings.cancelPolicy === p.value}
-                onChange={() => onUpdateCancelPolicy(p.value)}
-                className="mt-0.5 accent-indigo-500"
-              />
-              <div>
-                <p className="text-sm font-medium">{p.label}</p>
-                <p className="text-xs text-slate-400">{p.desc}</p>
-              </div>
-            </label>
-          ))}
-        </div>
       </div>
 
       <div>

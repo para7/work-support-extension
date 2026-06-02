@@ -2,9 +2,6 @@ import {
   createTimerState,
   isTimerActive,
   isTimerExpired,
-  isCooldownComplete,
-  requestCancel,
-  cancelCancelRequest,
   resetTimer,
 } from "@/core/timer";
 import { shouldBlock } from "@/core/whitelist";
@@ -57,8 +54,7 @@ export default defineBackground(() => {
   }
 
   async function startTimer(durationMinutes: number): Promise<void> {
-    const settings = await getSettings();
-    const state = createTimerState(durationMinutes, settings.cancelPolicy);
+    const state = createTimerState(durationMinutes);
     await setTimerState(state);
 
     const delayMinutes = Math.max(durationMinutes, 0.5);
@@ -81,14 +77,6 @@ export default defineBackground(() => {
 
     if (isTimerExpired(state)) {
       await stopTimer();
-      return;
-    }
-
-    if (state.status === "cancelling") {
-      const settings = await getSettings();
-      if (isCooldownComplete(state, settings.cooldownMinutes)) {
-        await stopTimer();
-      }
     }
   }
 
@@ -138,28 +126,6 @@ export default defineBackground(() => {
             const state = await getTimerState();
             return { success: true, state };
           }
-          case "STOP_TIMER": {
-            await stopTimer();
-            const state = await getTimerState();
-            return { success: true, state };
-          }
-          case "REQUEST_CANCEL": {
-            const current = await getTimerState();
-            const updated = requestCancel(current);
-            await setTimerState(updated);
-            if (updated.status === "idle") {
-              await browser.alarms.clear(ALARM_NAME);
-              await browser.alarms.clear(ALARM_CHECK_NAME);
-              await unblockTabs();
-            }
-            return { success: true, state: updated };
-          }
-          case "CANCEL_CANCEL_REQUEST": {
-            const current = await getTimerState();
-            const updated = cancelCancelRequest(current);
-            await setTimerState(updated);
-            return { success: true, state: updated };
-          }
           case "GET_STATE": {
             const state = await getTimerState();
             const settings = await getSettings();
@@ -178,6 +144,5 @@ export default defineBackground(() => {
     },
   );
 
-  // Restore state on service worker startup
   checkTimerExpiry();
 });

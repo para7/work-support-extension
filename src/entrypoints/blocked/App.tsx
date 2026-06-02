@@ -1,16 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TimerState, AppSettings } from "@/core/types";
-import {
-  getRemainingMs,
-  formatRemainingTime,
-  getCooldownRemainingMs,
-} from "@/core/timer";
+import { getRemainingMs, formatRemainingTime } from "@/core/timer";
+import { addToWhitelist } from "@/core/whitelist";
 import { sendMessage } from "@/utils/messaging";
 
 export default function App() {
   const [state, setState] = useState<TimerState | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [added, setAdded] = useState(false);
 
   const fetchState = useCallback(async () => {
     const res = await sendMessage({ type: "GET_STATE" });
@@ -30,6 +28,9 @@ export default function App() {
   }, []);
 
   const originalUrl = new URLSearchParams(window.location.search).get("url");
+  const blockedDomain = originalUrl ? (() => {
+    try { return new URL(originalUrl).hostname; } catch { return null; }
+  })() : null;
 
   useEffect(() => {
     if (!state) return;
@@ -38,14 +39,19 @@ export default function App() {
     }
   }, [state, originalUrl]);
 
-  const handleRequestCancel = async () => {
-    const res = await sendMessage({ type: "REQUEST_CANCEL" });
-    if (res.success && res.state) setState(res.state);
-  };
-
-  const handleCancelCancelRequest = async () => {
-    const res = await sendMessage({ type: "CANCEL_CANCEL_REQUEST" });
-    if (res.success && res.state) setState(res.state);
+  const handleAddToWhitelist = async () => {
+    if (!blockedDomain || !settings) return;
+    const updated = addToWhitelist(settings.whitelist, blockedDomain);
+    const res = await sendMessage({
+      type: "UPDATE_SETTINGS",
+      settings: { whitelist: updated },
+    });
+    if (res.success) {
+      setAdded(true);
+      if (originalUrl) {
+        window.location.href = originalUrl;
+      }
+    }
   };
 
   if (!state || !settings) {
@@ -58,12 +64,6 @@ export default function App() {
 
   const remainingMs = getRemainingMs(state, now);
   const remainingTime = formatRemainingTime(remainingMs);
-
-  const isCancelling = state.status === "cancelling";
-  const cooldownMs = isCancelling
-    ? getCooldownRemainingMs(state, settings.cooldownMinutes, now)
-    : 0;
-  const cooldownTime = formatRemainingTime(cooldownMs);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 text-slate-100">
@@ -87,40 +87,9 @@ export default function App() {
             {remainingTime}
           </p>
         </div>
-
-        {isCancelling && (
-          <div className="rounded-xl border border-amber-700/50 bg-amber-900/20 p-4">
-            <p className="mb-1 text-sm text-amber-400">
-              解除リクエスト中
-            </p>
-            <p className="font-mono text-lg tabular-nums text-amber-300">
-              クールダウン残り: {cooldownTime}
-            </p>
-            <button
-              onClick={handleCancelCancelRequest}
-              className="mt-3 rounded-lg bg-slate-700 px-4 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-600"
-            >
-              解除リクエストを取り消す
-            </button>
-          </div>
-        )}
-
-        {!isCancelling && state.cancelPolicy !== "none" && (
-          <button
-            onClick={handleRequestCancel}
-            className="rounded-lg border border-slate-600 px-6 py-3 text-sm text-slate-400 transition-colors hover:border-slate-500 hover:text-slate-300"
-          >
-            {state.cancelPolicy === "immediate"
-              ? "作業を終了する"
-              : "解除をリクエストする"}
-          </button>
-        )}
-
-        {state.cancelPolicy === "none" && (
-          <p className="text-xs text-slate-600">
-            タイマー終了まで解除できません
-          </p>
-        )}
+        <p className="text-xs text-slate-600">
+          タイマー終了まで解除できません
+        </p>
       </div>
     </div>
   );

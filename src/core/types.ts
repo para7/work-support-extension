@@ -1,11 +1,7 @@
-export type CancelPolicy = "none" | "cooldown" | "immediate";
-
 export interface TimerState {
-  status: "idle" | "running" | "cancelling";
+  status: "idle" | "running";
   endTime: number | null;
   duration: number | null;
-  cancelPolicy: CancelPolicy;
-  cancelRequestedAt: number | null;
 }
 
 export interface WhitelistEntry {
@@ -13,16 +9,11 @@ export interface WhitelistEntry {
 }
 
 export interface AppSettings {
-  cancelPolicy: CancelPolicy;
-  cooldownMinutes: number;
   whitelist: WhitelistEntry[];
 }
 
 export type MessageType =
   | { type: "START_TIMER"; duration: number }
-  | { type: "STOP_TIMER" }
-  | { type: "REQUEST_CANCEL" }
-  | { type: "CANCEL_CANCEL_REQUEST" }
   | { type: "GET_STATE" }
   | { type: "UPDATE_SETTINGS"; settings: Partial<AppSettings> };
 
