@@ -1,0 +1,82 @@
+name: Publish Release
+
+on:
+  push:
+    branches:
+      - release
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release artifacts
+        run: |
+          pnpm zip
+          pnpm zip:firefox
+
+      - name: Resolve release metadata
+        id: meta
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}-${GITHUB_RUN_NUMBER}"
+          {
+            echo "version=${version}"
+            echo "tag=${tag}"
+            echo "name=Release ${tag}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Collect release zip files
+        id: artifacts
+        run: |
+          shopt -s nullglob
+          chrome_files=(.output/*-chrome.zip)
+          firefox_files=(.output/*-firefox.zip)
+
+          if [ "${#chrome_files[@]}" -eq 0 ] || [ "${#firefox_files[@]}" -eq 0 ]; then
+            echo "Could not find Chrome or Firefox zip artifact."
+            echo "Chrome matches: ${#chrome_files[@]}"
+            echo "Firefox matches: ${#firefox_files[@]}"
+            printf 'All zip files in .output:\n'
+            printf '%s\n' .output/*.zip
+            exit 1
+          fi
+
+          files=("${chrome_files[0]}" "${firefox_files[0]}")
+
+          {
+            echo "files<<EOF"
+            printf '%s\n' "${files[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          overwrite_files: true
+          files: ${{ steps.artifacts.outputs.files }}
