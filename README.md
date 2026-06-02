@@ -1,6 +1,6 @@
 # 作業集中ブロッカー
 
-作業時間中にホワイトリスト外の Web ページ閲覧をブロックし、集中をサポートする Chrome 拡張機能です。
+作業時間中にホワイトリスト外の Web ページ閲覧をブロックし、集中をサポートする Chrome / Firefox 拡張機能です。
 
 ## 機能
 
@@ -58,6 +58,29 @@ pnpm build:firefox
 ```
 
 ビルド成果物は `.output/chrome-mv3/` (または `.output/firefox-mv3/`) に出力されます。
+
+## Releases からインストール
+
+配布ページ: [GitHub Releases](https://github.com/para7/work-support-extension/releases)
+
+### Chrome
+
+1. Releases から `*-chrome.zip` をダウンロード
+2. zip を展開
+3. Chrome で `chrome://extensions` を開く
+4. 右上の「デベロッパーモード」を ON にする
+5. 「パッケージ化されていない拡張機能を読み込む」をクリック
+6. 展開したフォルダを選択
+
+### Firefox
+
+1. Releases から `*-firefox.zip` をダウンロード
+2. zip を展開
+3. Firefox で `about:debugging#/runtime/this-firefox` を開く
+4. 「一時的なアドオンを読み込む」をクリック
+5. 展開したフォルダ内の `manifest.json` を選択
+
+> Firefox へのこの読み込み方法は一時的です。ブラウザ再起動後は再度読み込みが必要です。
 
 ## Chrome への手動インストール
 
